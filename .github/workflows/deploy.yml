@@ -4,6 +4,8 @@ on:
   push:
     tags:
     - '*'
+    # The Jinya build's rolling release (jinya.yml) isn't a version.
+    - '!jinya'
 
 jobs:
   deploy-image:

@@ -1,0 +1,46 @@
+# Builds the API jar on every push to develop and publishes it to the rolling GitHub release
+# "jinya" (arsha.jar + latest.json), which the Jinya server's deploy scripts fetch
+# (MARKET_API_RELEASE in jinya.env, deploy/windows/market.ps1 in Jinya).
+name: Jinya build
+
+on:
+  push:
+    branches: [develop]
+    paths: ["src/**", "config/**", "build.gradle.kts", "gradle/**", "settings.gradle.kts", "gradle.properties", ".github/workflows/jinya.yml"]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: jinya-release
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "24"
+      - name: Build
+        run: |
+          chmod +x gradlew
+          ./gradlew --no-daemon build -x test
+          mkdir -p dist
+          cp build/libs/api-*.jar dist/arsha.jar
+          cp config/application-default.yaml dist/application-default.yaml
+          sha=$(sha256sum dist/arsha.jar | cut -d' ' -f1)
+          printf '{"version":"%s","file":"arsha.jar","sha256":"%s"}\n' "${GITHUB_SHA::7}" "$sha" > dist/latest.json
+          cat dist/latest.json
+      - name: Publish
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          git tag -f jinya "$GITHUB_SHA" && git push -f origin refs/tags/jinya
+          if ! gh release view jinya >/dev/null 2>&1; then
+            gh release create jinya --title "Jinya build" --notes "Latest arsha.jar, built by CI from develop." --prerelease
+          fi
+          gh release upload jinya dist/arsha.jar dist/latest.json dist/application-default.yaml --clobber
