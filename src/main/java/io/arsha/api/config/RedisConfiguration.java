@@ -27,7 +27,11 @@ import org.springframework.data.redis.serializer.StringRedisSerializer;
 
 @Configuration
 @EnableCaching
-@EnableRedisRepositories(enableKeyspaceEvents = EnableKeyspaceEvents.ON_STARTUP)
+// The key-expired events feed the WebSocket (ExpiredEvent). The app no longer runs
+// CONFIG SET notify-keyspace-events itself: Garnet (Redis-compatible, runs natively on
+// Windows) refuses that command and the app wouldn't start. On Redis, put
+// `notify-keyspace-events Ex` in its config to keep the WebSocket's events.
+@EnableRedisRepositories(enableKeyspaceEvents = EnableKeyspaceEvents.ON_STARTUP, keyspaceNotificationsConfigParameter = "")
 public class RedisConfiguration {
 
     @Bean

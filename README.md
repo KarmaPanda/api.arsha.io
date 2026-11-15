@@ -54,6 +54,18 @@ git pull
 docker compose up --build api -d
 ```
 
+### Without Docker (Windows, Garnet)
+
+The app runs on any Java 24+ with a Redis-compatible cache. On Windows, Microsoft's Garnet works
+(`dotnet tool install garnet-server`, then `garnet-server --port 6379 --lua`): the app no longer
+runs `CONFIG SET notify-keyspace-events` at start, which Garnet refuses. With Redis, add
+`notify-keyspace-events Ex` to its config if you use the WebSocket's expiry events.
+
+```bash
+./gradlew build -x test
+java -jar build/libs/api-*.jar --spring.config.additional-location=config/application-default.yaml --cache.redis.host=127.0.0.1
+```
+
 ### Kubernetes
 A minimal Kubernetes deployment is also provided in the [manifests](manifests) directory. 
 - This deployment assumes you have a working Kubernetes cluster and have `cert-manager` and `nginx-ingress` installed and configured.
