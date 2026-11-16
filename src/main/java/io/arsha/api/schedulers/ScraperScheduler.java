@@ -5,6 +5,7 @@ import io.arsha.api.services.ScraperService;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.Optional;
+import java.util.concurrent.TimeUnit;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.redisson.api.RLock;
@@ -33,6 +34,18 @@ public class ScraperScheduler {
     @Scheduled(cron = "0 0 1 * * FRI")
     private void scrape() {
         scrapeAll(ExecutionType.CRON);
+    }
+
+    /**
+     * A scrape that failed (the codex timed out or was down) would otherwise wait for Friday's run, leaving every item
+     * without a name until then. Every 30 minutes a locale with no scrape in the last 6 days is tried again; the rest are
+     * skipped without a request.
+     */
+    @Scheduled(initialDelay = 30, fixedDelay = 30, timeUnit = TimeUnit.MINUTES)
+    private void retryMissing() {
+        if (codexConfigurationService.getLocales().stream().anyMatch(scraperService::isScrapeNeeded)) {
+            scrapeAll(ExecutionType.STARTUP);
+        }
     }
 
     private Optional<RLock> acquireLock() {

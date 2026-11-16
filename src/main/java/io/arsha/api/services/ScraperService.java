@@ -14,6 +14,10 @@ import java.util.Optional;
 import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.apache.hc.client5.http.config.RequestConfig;
+import org.apache.hc.client5.http.impl.classic.HttpClientBuilder;
+import org.apache.hc.core5.util.Timeout;
+import org.springframework.http.client.HttpComponentsClientHttpRequestFactory;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestTemplate;
 
@@ -22,9 +26,21 @@ import org.springframework.web.client.RestTemplate;
 @RequiredArgsConstructor
 public class ScraperService {
 
-    private final RestTemplate httpClient;
+    /**
+     * The codex's item list is a single large download (tens of MB), far past the 5 second timeout the market calls use,
+     * so the scraper has a client of its own.
+     */
+    private final RestTemplate httpClient = codexClient();
     private final ScraperDataRedisService redisService;
     private final CodexConfigurationService codexConfigurationService;
+
+    private static RestTemplate codexClient() {
+        var config = RequestConfig.custom()
+                .setResponseTimeout(Timeout.ofMinutes(3))
+                .build();
+        var client = HttpClientBuilder.create().setDefaultRequestConfig(config).build();
+        return new RestTemplate(new HttpComponentsClientHttpRequestFactory(client));
+    }
 
     public Optional<Integer> scrape(String locale, ExecutionType executionType) {
         var data = requestItems(locale, executionType);
